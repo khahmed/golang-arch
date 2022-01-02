@@ -1,13 +1,43 @@
 package main
 
 import (
+	"crypto/hmac"
+	"crypto/sha512"
 	"fmt"
 	"log"
+	"time"
 
+	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
 
+
+var key = []byte{}
+
+type UserClaims struct {
+	 jwt.StandardClaims
+	 SessionID int64
+}
+
+func (u *UserClaims) Valid() error {
+	if !u.VerifyExpiresAt(time.Now().Unix(), true) {
+		return fmt.Errorf("Token has expired")
+
+	}
+
+	if u.SessionID == 0 {
+		return fmt.Errorf("Invalid sessionid ")
+	}
+	return nil
+}
+
 func main() {
+
+
+	for i :=1 ; i < 64; i++ {
+		key = append(key, byte(i))
+	}
+
 
 	pass := "12345678"
 	hashedPass, err := hashPassword(pass)
@@ -41,4 +71,29 @@ func comparePassword(password string, hashedPass []byte) error {
 		return fmt.Errorf("Invalid password: %w", err)
 	}
 	return nil
+}
+
+
+func signMessage(msg []byte) ([]byte, error) {
+
+	h := hmac.New(sha512.New, key)
+	_, err := h.Write(msg)
+	if err != nil {
+		return nil, fmt.Errorf("Error in signing message : %w", err)
+	}
+
+	signature := h.Sum(nil)
+	return signature, nil
+}
+
+func checkSig(msg, sig []byte) (bool, error) {
+   newSig, err  := signMessage(msg)
+
+	 if err != nil {
+		 return false, fmt.Errorf("Error in checkSig: %w", err)
+	 }
+
+	 same := hmac.Equal(newSig, sig)
+	 return same, nil
+
 }
